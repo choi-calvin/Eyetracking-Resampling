@@ -19,7 +19,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def manipulate_df(df_old, filename):
+def manipulate_df(df_old):
     blink_count = len(df_old['RIGHT_IN_BLINK'] == 1)
     df_new = df_old[df_old['RIGHT_IN_BLINK'] == 0]
     print('\tRemoved {} blink(s)'.format(blink_count))
@@ -41,14 +41,16 @@ if __name__ == '__main__':
             print('Working on {}:'.format(filename))
             print('\tReading...'.format(filename))
             df = pd.read_csv(os.path.join(args.dir, filename), sep='\t')
-            df = manipulate_df(df, filename)
+            df = manipulate_df(df)
 
             new_name = os.path.join(args.dir, filename.replace(".txt", "_processed.txt"))
             print('\tExporting...'.format(filename))
             if os.path.isfile(new_name):
                 print('\t\tWARNING: Overriding {}'.format(os.path.abspath(new_name)))
             df.to_csv(new_name, sep='\t')
-            print('\tExport successful! ({})'.format(datetime.now() - file_start_time))
+            print('\tExport successful!')
+            print('\tTotal {:5f}s'.format((datetime.now() - file_start_time).total_seconds()))
             resampled_count += 1
 
-    print('Operation success: resampled {} dataframe(s) ({})'.format(resampled_count, datetime.now() - op_start_time))
+    print('Operation success: resampled {} dataframe(s) (total {:.5f}s)'.format(resampled_count, (
+            datetime.now() - op_start_time).total_seconds()))
