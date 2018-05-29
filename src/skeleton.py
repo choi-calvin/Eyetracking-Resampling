@@ -1,6 +1,5 @@
 import pandas as pd
 import configparser as cp
-import sys
 import os
 import argparse
 
@@ -14,21 +13,32 @@ def read_config():
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Resample eyetracking data according to parameters.')
-    parser.add_argument('dir', help='the directory to scan and apply resampling', nargs='?', default=os.getcwd())
+    parser.add_argument('dir', help='the directory to scan and apply resampling (default: current directory)',
+                        nargs='?', default=os.getcwd())
     return parser.parse_args()
 
 
-op = read_config()
-# print(list(op))
+def manipulate_df(df_old):
+    df_new = df_old[df_old['RIGHT_IN_BLINK'] == 1].head(1)
+    return df_new
 
-args = parse_args()
-directory = os.fsencode(args.dir)
-for file in os.listdir(directory):
-    filename = os.fsdecode(file)
-    if filename.endswith(".txt"):
-        df = pd.read_csv(args.dir + "/" + filename, sep='\t')
-        df = df[df['RIGHT_IN_BLINK'] == 1].head(1)
-        df.to_csv(sys.argv[1] + "/" + filename.replace(".txt", "") + "_processed.txt", sep='\t')
-        break
-    else:
-        continue
+
+if __name__ == '__main__':
+    args = parse_args()
+
+    resampled_count = 0
+
+    directory = os.fsencode(args.dir)
+    for file in os.listdir(directory):
+        filename = os.fsdecode(file)
+        if filename.endswith(".txt") and not filename.endswith("_processed.txt"):
+            df = pd.read_csv(os.path.join(args.dir, filename), sep='\t')
+            df = manipulate_df(df)
+
+            new_name = os.path.join(args.dir, filename.replace(".txt", "_processed.txt"))
+            if os.path.isfile(new_name):
+                print('WARNING: Overriding {}'.format(new_name))
+            df.to_csv(new_name, sep='\t')
+            resampled_count += 1
+
+    print('Operation success: resampled {} dataframe(s)'.format(resampled_count))
