@@ -2,6 +2,7 @@ import pandas as pd
 import configparser as cp
 import sys
 import os
+import argparse
 
 
 def read_config():
@@ -11,14 +12,21 @@ def read_config():
     return option
 
 
-op = read_config()
-print(list(op))
+def parse_args():
+    parser = argparse.ArgumentParser(description='Resample eyetracking data according to parameters.')
+    parser.add_argument('dir', help='the directory to scan and apply resampling', nargs='?', default=os.getcwd())
+    return parser.parse_args()
 
-directory = os.fsencode(sys.argv[1])
+
+op = read_config()
+# print(list(op))
+
+args = parse_args()
+directory = os.fsencode(args.dir)
 for file in os.listdir(directory):
     filename = os.fsdecode(file)
     if filename.endswith(".txt"):
-        df = pd.read_csv(sys.argv[1] + "/" + filename, sep='\t')
+        df = pd.read_csv(args.dir + "/" + filename, sep='\t')
         df = df[df['RIGHT_IN_BLINK'] == 1].head(1)
         df.to_csv(sys.argv[1] + "/" + filename.replace(".txt", "") + "_processed.txt", sep='\t')
         break
