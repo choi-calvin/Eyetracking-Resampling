@@ -38,13 +38,13 @@ def parse_args():
 
 
 def bin_df(df_old):
-    # max_trial_index = df_old['TRIAL_INDEX'].max()
-    df_new = df_old.groupby(['TRIAL_INDEX']).groupby()
+    # df_new = df_old.groupby('TRIAL_INDEX')
+    df_new = df_old.groupby(df_old.index // 3).mean()
 
     return df_new
 
 
-def manipulate_df(df_old):
+def remove_blinks(df_old):
     blink_count = len(df_old[df_old['RIGHT_IN_BLINK'] == 1])
     df_new = df_old[df_old['RIGHT_IN_BLINK'] == 0]
     print("\tRemoved {} blink(s) ({:.{prec}f}% of total)".format(blink_count, blink_count / len(df_old) * 100,
@@ -69,8 +69,8 @@ def main():
             print("Working on {}:".format(filename))
             print("\tReading...".format(filename))
             df = pd.read_csv(os.path.join(args.dir, filename), sep='\t')
-            df = manipulate_df(df)
-            # df = bin_df(df)
+            df = remove_blinks(df)
+            df = bin_df(df)
 
             new_name = os.path.join(args.dir, filesplit[0] + '_processed' + filesplit[1])
             print("\tExporting...".format(filename))
