@@ -10,10 +10,24 @@ FILE_TYPES = ('.txt', '.text')
 
 
 def read_config():
+    global PERCENT_PREC
+    global TIME_PREC
+    global FILE_TYPES
+
     config = cp.ConfigParser()
     config.read('options.ini')
-    option = config['DEFAULT']
-    return option
+
+    if 'DEFAULT' in config:
+        if 'FILE_TYPES' in config['DEFAULT']:
+            FILE_TYPES = tuple(config['DEFAULT']['FILE_TYPES'].split(', '))
+
+    if 'CONSOLE OUTPUT' in config:
+        if 'PERCENT_PREC' in config['CONSOLE OUTPUT']:
+            PERCENT_PREC = config['CONSOLE OUTPUT']['PERCENT_PREC']
+        if 'TIME_PREC' in config['CONSOLE OUTPUT']:
+            TIME_PREC = config['CONSOLE OUTPUT']['TIME_PREC']
+
+    return config
 
 
 def parse_args():
@@ -38,8 +52,9 @@ def manipulate_df(df_old):
     return df_new
 
 
-if __name__ == '__main__':
+def main():
     args = parse_args()
+    config = read_config()
 
     resampled_count = 0
 
@@ -68,3 +83,7 @@ if __name__ == '__main__':
 
     print("Operation success: resampled {} dataframe(s) (total {:.{prec}f}s)".format(resampled_count, (
             datetime.now() - op_start_time).total_seconds(), prec=TIME_PREC))
+
+
+if __name__ == '__main__':
+    main()
