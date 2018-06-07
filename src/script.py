@@ -11,10 +11,8 @@ GROUP_BY = 'TRIAL_INDEX'
 PERCENT_PREC = 3
 TIME_PREC = 5
 
-mean_t = []
-median_t = []
-sum_t = []
-aggregate_types = {'mean': mean_t, 'median': median_t, 'sum': sum_t}
+common_aggregate_types = ['mean', 'median', 'mode', 'sum', 'min', 'max']
+aggregations = {}
 
 
 def str_to_int(str_to_convert, default):
@@ -22,7 +20,7 @@ def str_to_int(str_to_convert, default):
         converted_str = int(str_to_convert)
         return converted_str
     except ValueError as e:
-        print("ERROR: {} is not a valid number in config file".format(e))
+        print("ERROR: {} in config file is not a valid integer, using default".format(e))
     return default
 
 
@@ -32,6 +30,7 @@ def read_config():
     global GROUP_BY
     global PERCENT_PREC
     global TIME_PREC
+    global aggregations
 
     config = cp.ConfigParser()
     config.optionxform = str
@@ -47,18 +46,27 @@ def read_config():
 
     if 'AGGREGATE TYPE' in config:
         for variable in config['AGGREGATE TYPE']:
-            if config['AGGREGATE TYPE'][variable] in aggregate_types:
-                aggregate_types[config['AGGREGATE TYPE'][variable]].append(variable)
-            else:
-                print("ERROR: {} in config file does not have a supported aggregate type".format(variable))
+            agg_types = config['AGGREGATE TYPE'][variable].split(', ')
 
+            for agg_type in agg_types:
+                if agg_type not in common_aggregate_types:
+                    print(
+                        "WARNING: {} in config file is not a common aggregate type, may cause crashes".format(agg_type))
+                if len(agg_types) == 1:
+                    aggregations[variable] = {variable: agg_type}
+                else:
+                    new_name = variable + '_' + agg_type
+                    if variable not in aggregations:
+                        aggregations[variable] = {new_name: agg_type}
+                    else:
+                        aggregations[variable][new_name] = agg_type
+
+    print(aggregations)
     if 'CONSOLE OUTPUT' in config:
         if 'PERCENT_PREC' in config['CONSOLE OUTPUT']:
             PERCENT_PREC = str_to_int(config['CONSOLE OUTPUT']['PERCENT_PREC'], PERCENT_PREC)
         if 'TIME_PREC' in config['CONSOLE OUTPUT']:
             TIME_PREC = str_to_int(config['CONSOLE OUTPUT']['TIME_PREC'], TIME_PREC)
-
-    return config
 
 
 def parse_args():
@@ -69,7 +77,10 @@ def parse_args():
 
 
 def bin_df(df_old):
-    df_new = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE]).mean()
+    if GROUP_BY not in df_old.columns:
+        print("ERROR: {} not found in dataset, exiting...".format(GROUP_BY))
+    df_new = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False).mean()
+    df_new = df_new.set_index(GROUP_BY)
     return df_new
 
 
@@ -83,7 +94,7 @@ def remove_blinks(df_old):
 
 def main():
     args = parse_args()
-    config = read_config()
+    read_config()
 
     resampled_count = 0
 
