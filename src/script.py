@@ -52,16 +52,11 @@ def read_config():
                 if agg_type not in common_aggregate_types:
                     print(
                         "WARNING: {} in config file is not a common aggregate type, may cause crashes".format(agg_type))
-                if len(agg_types) == 1:
-                    aggregations[variable] = {variable: agg_type}
+                if variable in aggregations:
+                    aggregations[variable].append(agg_type)
                 else:
-                    new_name = variable + '_' + agg_type
-                    if variable not in aggregations:
-                        aggregations[variable] = {new_name: agg_type}
-                    else:
-                        aggregations[variable][new_name] = agg_type
+                    aggregations[variable] = [agg_type]
 
-    print(aggregations)
     if 'CONSOLE OUTPUT' in config:
         if 'PERCENT_PREC' in config['CONSOLE OUTPUT']:
             PERCENT_PREC = str_to_int(config['CONSOLE OUTPUT']['PERCENT_PREC'], PERCENT_PREC)
@@ -79,7 +74,8 @@ def parse_args():
 def bin_df(df_old):
     if GROUP_BY not in df_old.columns:
         print("ERROR: {} not found in dataset, exiting...".format(GROUP_BY))
-    df_new = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False).mean()
+    df_new = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False).agg(
+        aggregations)
     df_new = df_new.set_index(GROUP_BY)
     return df_new
 
