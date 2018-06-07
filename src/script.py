@@ -11,8 +11,8 @@ GROUP_BY = 'TRIAL_INDEX'
 PERCENT_PREC = 3
 TIME_PREC = 5
 
-common_aggregate_types = ['mean', 'median', 'mode', 'sum', 'min', 'max']
-aggregations = {}
+COMMON_AGGREGATE_TYPES = ['mean', 'median', 'mode', 'sum', 'min', 'max']
+AGGREGATIONS = {}
 
 
 def str_to_int(str_to_convert, default):
@@ -30,7 +30,7 @@ def read_config():
     global GROUP_BY
     global PERCENT_PREC
     global TIME_PREC
-    global aggregations
+    global AGGREGATIONS
 
     config = cp.ConfigParser()
     config.optionxform = str
@@ -49,13 +49,13 @@ def read_config():
             agg_types = config['AGGREGATE TYPE'][variable].split(', ')
 
             for agg_type in agg_types:
-                if agg_type not in common_aggregate_types:
+                if agg_type not in COMMON_AGGREGATE_TYPES:
                     print(
                         "WARNING: {} in config file is not a common aggregate type, may cause crashes".format(agg_type))
-                if variable in aggregations:
-                    aggregations[variable].append(agg_type)
+                if variable in AGGREGATIONS:
+                    AGGREGATIONS[variable].append(agg_type)
                 else:
-                    aggregations[variable] = [agg_type]
+                    AGGREGATIONS[variable] = [agg_type]
 
     if 'CONSOLE OUTPUT' in config:
         if 'PERCENT_PREC' in config['CONSOLE OUTPUT']:
@@ -71,11 +71,18 @@ def parse_args():
     return parser.parse_args()
 
 
+def aggregate(df_groupby, df):
+    modified_aggregations = {variable: agg_types for variable, agg_types in AGGREGATIONS.items() if
+                             variable in df.columns}
+    return df_groupby.agg(modified_aggregations)
+
+
 def bin_df(df_old):
     if GROUP_BY not in df_old.columns:
         print("ERROR: {} not found in dataset, exiting...".format(GROUP_BY))
-    df_new = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False).agg(
-        aggregations)
+        exit(1)
+    df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
+    df_new = aggregate(df_groupby, df_old)
     df_new = df_new.set_index(GROUP_BY)
     return df_new
 
