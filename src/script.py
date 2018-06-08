@@ -18,7 +18,7 @@ import argparse
 from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
 
-# Constants, can be overwritten by config file
+# Constants, can be overwritten by config file or script arguments
 CONFIG_FILE = 'options.ini'
 
 FILE_TYPES = ('txt', 'text')
@@ -37,7 +37,7 @@ def str_to_int(str_to_convert, default):
         converted_str = int(str_to_convert)
         return converted_str
     except ValueError as e:
-        print("\tERROR: {} is not a valid integer, using default {}".format(str_to_convert, default))
+        print("ERROR: '{}' is not a valid integer in config, using default {}".format(str_to_convert, default))
     return default
 
 
@@ -69,7 +69,7 @@ def read_config():
             for agg_type in agg_types:
                 if agg_type not in COMMON_AGGREGATE_TYPES:
                     print(
-                        "\tWARNING: {} is not a common aggregate type, may cause crashes".format(agg_type))
+                        "\tWARNING: '{}' is not a common aggregate type in config, may cause crashes".format(agg_type))
                 if variable in AGGREGATIONS:
                     AGGREGATIONS[variable].append(agg_type)
                 else:
@@ -97,7 +97,22 @@ def parse_args():
         formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('dir', help="the directory to scan and apply resampling (default: current directory)",
                         nargs='?', default=os.getcwd())
+    parser.add_argument('-n', help="the resampling rate", nargs='?', default=RESAMPLING_RATE, type=int,
+                        dest='resampling_rate')
+    parser.add_argument('--trial', help="the name of the column specifying trial indices",
+                        nargs='?', default=GROUP_BY, dest='trial_variable')
     return parser.parse_args()
+
+
+# Overwrite constants from arguments, if set
+def update_args(args):
+    global GROUP_BY
+    global RESAMPLING_RATE
+
+    if args.trial_variable is not None:
+        GROUP_BY = args.trial_variable
+    if args.resampling_rate is not None:
+        RESAMPLING_RATE = args.resampling_rate
 
 
 def remove_blinks(df_old):
@@ -111,11 +126,8 @@ def remove_blinks(df_old):
 
 
 def bin_df(df_old):
-    if GROUP_BY not in df_old.columns:
-        print("\tERROR: {} not found in dataset, skipping...".format(GROUP_BY))
-        return None
     # Groups every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
-    print("\tGrouping every {} rows...".format(RESAMPLING_RATE), end='')
+    print("\tGrouping every {} row(s)...".format(RESAMPLING_RATE), end='')
     df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
     print("success!")
     print("\tComputing and aggregating data...", end='')
@@ -133,12 +145,9 @@ def aggregate(df_groupby, df):
 
 
 def main():
-    print("Reading from config file '{}':".format(CONFIG_FILE))
-    read_config()
-    print("\tSuccess!")
-    print("Parsing arguments:")
     args = parse_args()
-    print("\tSuccess!")
+    read_config()
+    update_args(args)
 
     resampled_count = 0
     error_count = 0
@@ -151,24 +160,26 @@ def main():
         if filename.endswith(FILE_TYPES) and not filesplit[0].endswith('_processed'):
             file_start_time = datetime.now()  # For current operation length
 
-            print("Working on {}:".format(filename))
+            print("Working on '{}':".format(filename))
             print("\tReading...".format(filename), end='')
             df = pd.read_csv(os.path.join(args.dir, filename), sep='\t', na_values='.')
             print("success!")
 
+            if GROUP_BY not in df.columns:
+                print("\tERROR: '{}' not found in dataset, skipping...".format(GROUP_BY))
+                error_count += 1
+                print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
+                continue
+
             df = remove_blinks(df)
             df = bin_df(df)
-            if df is None:
-                error_count += 1
-                resampled_count = 0 if (resampled_count == 0) else (resampled_count - 1)
-                continue
 
             new_name = os.path.join(args.dir, filesplit[0] + '_processed' + filesplit[1])
             print("\tExporting...".format(filename), end='')
             df.to_csv(new_name, sep='\t')
             print("success!")
             if os.path.isfile(new_name):
-                print("\t\tWARNING: Overrode {}".format(os.path.abspath(new_name)))
+                print("\t\tWARNING: Overrode '{}'".format(os.path.abspath(new_name)))
             print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
             resampled_count += 1
 
