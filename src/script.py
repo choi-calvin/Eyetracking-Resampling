@@ -18,7 +18,7 @@ import argparse
 from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
 
-# Constants, can be overwritten by config file or script arguments
+# Constants, can be overwritten by config file
 CONFIG_FILE = 'options.ini'
 
 FILE_TYPES = ('txt', 'text')
@@ -28,7 +28,7 @@ GROUP_BY = 'TRIAL_INDEX'
 PERCENT_PREC = 3
 TIME_PREC = 5
 
-COMMON_AGGREGATE_TYPES = ['mean', 'median', 'mode', 'sum', 'min', 'max']
+COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode']
 AGGREGATIONS = {}
 
 
@@ -39,6 +39,10 @@ def str_to_int(str_to_convert, default):
     except ValueError:
         print("ERROR: '{}' is not a valid integer in config, using default {}".format(str_to_convert, default))
     return default
+
+
+def str_mode(group):
+    return group.value_counts().index[0]
 
 
 # Overwrite constants from config file, if they exist
@@ -70,6 +74,8 @@ def read_config():
                 if agg_type not in COMMON_AGGREGATE_TYPES:
                     print(
                         "WARNING: '{}' in config is not a common aggregate type, may cause crashes".format(agg_type))
+                if agg_type == 'str_mode':
+                    agg_type = str_mode
                 if variable in AGGREGATIONS:
                     AGGREGATIONS[variable].append(agg_type)
                 else:
@@ -97,22 +103,7 @@ def parse_args():
         formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('dir', help="the directory to scan and apply resampling (default: current directory)",
                         nargs='?', default=os.getcwd())
-    parser.add_argument('-n', help="the resampling rate", nargs='?', default=None, type=int,
-                        dest='resampling_rate')
-    parser.add_argument('--trial', help="the name of the column specifying trial indices",
-                        nargs='?', default=None, dest='trial_variable')
     return parser.parse_args()
-
-
-# Overwrite constants from arguments, if set
-def update_args(args):
-    global GROUP_BY
-    global RESAMPLING_RATE
-
-    if args.trial_variable is not None:
-        GROUP_BY = args.trial_variable
-    if args.resampling_rate is not None:
-        RESAMPLING_RATE = args.resampling_rate
 
 
 def remove_blinks(df_old):
@@ -150,7 +141,6 @@ def aggregate(df_groupby, df):
 def main():
     args = parse_args()
     read_config()
-    update_args(args)
 
     resampled_count = 0
     error_count = 0
@@ -179,7 +169,7 @@ def main():
             df = remove_blinks(df)
             try:
                 df = bin_df(df)
-            except AttributeError as e:
+            except Exception as e:
                 print("\n\tERROR: " + str(e) + ", skipping...")
                 error_count += 1
                 print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
