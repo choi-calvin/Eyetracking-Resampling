@@ -97,10 +97,10 @@ def parse_args():
         formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('dir', help="the directory to scan and apply resampling (default: current directory)",
                         nargs='?', default=os.getcwd())
-    parser.add_argument('-n', help="the resampling rate", nargs='?', default=RESAMPLING_RATE, type=int,
+    parser.add_argument('-n', help="the resampling rate", nargs='?', default=None, type=int,
                         dest='resampling_rate')
     parser.add_argument('--trial', help="the name of the column specifying trial indices",
-                        nargs='?', default=GROUP_BY, dest='trial_variable')
+                        nargs='?', default=None, dest='trial_variable')
     return parser.parse_args()
 
 
