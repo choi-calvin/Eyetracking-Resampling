@@ -36,7 +36,7 @@ def str_to_int(str_to_convert, default):
     try:
         converted_str = int(str_to_convert)
         return converted_str
-    except ValueError as e:
+    except ValueError:
         print("ERROR: '{}' is not a valid integer in config, using default {}".format(str_to_convert, default))
     return default
 
@@ -161,8 +161,8 @@ def main():
         about_to_override = False
 
         filename = os.fsdecode(file)
-        filesplit = os.path.splitext(filename)
-        if filename.endswith(FILE_TYPES) and not filesplit[0].endswith('_processed'):
+        file_split = os.path.splitext(filename)
+        if filename.endswith(FILE_TYPES) and not file_split[0].endswith('_processed'):
             file_start_time = datetime.now()  # For current operation length
 
             print("Working on '{}':".format(filename))
@@ -185,7 +185,7 @@ def main():
                 print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
                 continue
 
-            new_name = os.path.join(args.dir, filesplit[0] + '_processed' + filesplit[1])
+            new_name = os.path.join(args.dir, file_split[0] + '_processed' + file_split[1])
             if os.path.isfile(new_name):
                 about_to_override = True
             print("\tExporting...".format(filename), end='')
