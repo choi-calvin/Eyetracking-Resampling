@@ -15,7 +15,6 @@ import pandas as pd
 import configparser as cp
 import os
 import argparse
-import numpy as np
 from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
 
@@ -70,7 +69,7 @@ def read_config():
             for agg_type in agg_types:
                 if agg_type not in COMMON_AGGREGATE_TYPES:
                     print(
-                        "\tWARNING: '{}' is not a common aggregate type in config, may cause crashes".format(agg_type))
+                        "WARNING: '{}' in config is not a common aggregate type, may cause crashes".format(agg_type))
                 if variable in AGGREGATIONS:
                     AGGREGATIONS[variable].append(agg_type)
                 else:
@@ -125,23 +124,14 @@ def remove_blinks(df_old):
                                                                              prec=PERCENT_PREC))
     return df_new
 
-def drop_rows(df):
-    rows_to_drop = RESAMPLING_RATE - len(df.index)
-    if(rows_to_drop==0):
-        return df
-    for i in range(rows_to_drop):
-        last_row = df.iloc[-1]
-        df.append(last_row)
-    return df
-
 
 def bin_df(df_old):
-    # Groups every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
+    # Group every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
     print("\tGrouping every {} row(s)...".format(RESAMPLING_RATE), end='')
     df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
-    #for now drop rows at the end of each group to match sampling rate
-    df_groupby = df_groupby.filter(lambda x: len(x.index)==RESAMPLING_RATE)
-    df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
+    # Drop rows at the end of each group to match sampling rate
+    # df_groupby = df_groupby.filter(lambda x: len(x.index) == RESAMPLING_RATE)
+    # df_groupby = df_groupby.groupby([GROUP_BY, (df_groupby.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
     print("success!")
     print("\tComputing and aggregating data...", end='')
     df_new = aggregate(df_groupby, df_old)
@@ -151,7 +141,7 @@ def bin_df(df_old):
 
 
 def aggregate(df_groupby, df):
-    # Aggregates dataset only with column variables that exist in the current worked dataset
+    # Aggregate dataset only with column variables that exist in the current worked dataset
     modified_aggregations = {variable: agg_types for variable, agg_types in AGGREGATIONS.items() if
                              variable in df}
     return df_groupby.agg(modified_aggregations)
@@ -159,7 +149,6 @@ def aggregate(df_groupby, df):
 
 def main():
     args = parse_args()
-    print(args)
     read_config()
     update_args(args)
 
@@ -169,6 +158,8 @@ def main():
     op_start_time = datetime.now()  # For the calculation of total operation length
     directory = os.fsencode(args.dir)
     for file in os.listdir(directory):
+        about_to_override = False
+
         filename = os.fsdecode(file)
         filesplit = os.path.splitext(filename)
         if filename.endswith(FILE_TYPES) and not filesplit[0].endswith('_processed'):
@@ -186,13 +177,21 @@ def main():
                 continue
 
             df = remove_blinks(df)
-            df = bin_df(df)
+            try:
+                df = bin_df(df)
+            except AttributeError as e:
+                print("\n\tERROR: " + str(e) + ", skipping...")
+                error_count += 1
+                print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
+                continue
 
             new_name = os.path.join(args.dir, filesplit[0] + '_processed' + filesplit[1])
+            if os.path.isfile(new_name):
+                about_to_override = True
             print("\tExporting...".format(filename), end='')
             df.to_csv(new_name, sep='\t')
             print("success!")
-            if os.path.isfile(new_name):
+            if about_to_override:
                 print("\t\tWARNING: Overrode '{}'".format(os.path.abspath(new_name)))
             print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
             resampled_count += 1
