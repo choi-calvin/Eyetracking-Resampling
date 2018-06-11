@@ -15,6 +15,7 @@ import pandas as pd
 import configparser as cp
 import os
 import argparse
+import numpy as np
 from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
 
@@ -124,10 +125,22 @@ def remove_blinks(df_old):
                                                                              prec=PERCENT_PREC))
     return df_new
 
+def drop_rows(df):
+    rows_to_drop = RESAMPLING_RATE - len(df.index)
+    if(rows_to_drop==0):
+        return df
+    for i in range(rows_to_drop):
+        last_row = df.iloc[-1]
+        df.append(last_row)
+    return df
+
 
 def bin_df(df_old):
     # Groups every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
     print("\tGrouping every {} row(s)...".format(RESAMPLING_RATE), end='')
+    df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
+    #for now drop rows at the end of each group to match sampling rate
+    df_groupby = df_groupby.filter(lambda x: len(x.index)==RESAMPLING_RATE)
     df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
     print("success!")
     print("\tComputing and aggregating data...", end='')
@@ -140,12 +153,13 @@ def bin_df(df_old):
 def aggregate(df_groupby, df):
     # Aggregates dataset only with column variables that exist in the current worked dataset
     modified_aggregations = {variable: agg_types for variable, agg_types in AGGREGATIONS.items() if
-                             variable in df.columns}
+                             variable in df}
     return df_groupby.agg(modified_aggregations)
 
 
 def main():
     args = parse_args()
+    print(args)
     read_config()
     update_args(args)
 
