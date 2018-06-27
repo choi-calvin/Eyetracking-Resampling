@@ -22,13 +22,13 @@ from datetime import datetime
 CONFIG_FILE = 'options.ini'
 
 FILE_TYPES = ('txt', 'text')
-RESAMPLING_RATE = 5
+RESAMPLING_RATE = 5#rows
 GROUP_BY = 'TRIAL_INDEX'
 
 PERCENT_PREC = 3
 TIME_PREC = 5
 
-COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode']
+COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode', 'nunique']
 AGGREGATIONS = {}
 
 
@@ -96,7 +96,7 @@ def parse_args():
         Resamples all specified file types in the specified directory and outputs in new file with suffix _processed.
         Column variables and their aggregate types are specified in options.ini. If column variables do not exist in a
         dataset, they are skipped.
-        
+
         Designed for use in Duncan Lab with eyetracking experiment data.
         ***
         """,
