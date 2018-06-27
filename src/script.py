@@ -53,6 +53,7 @@ def read_config():
     global PERCENT_PREC
     global TIME_PREC
     global AGGREGATIONS
+    global FILE_TO_PROCESS
 
     config = cp.ConfigParser()
     config.optionxform = str
@@ -65,6 +66,8 @@ def read_config():
             RESAMPLING_RATE = str_to_int(config['SETTINGS']['RESAMPLING_RATE'], RESAMPLING_RATE)
         if 'GROUP_BY' in config['SETTINGS']:
             GROUP_BY = config['SETTINGS']['GROUP_BY']
+        if 'FILE_TO_PROCESS' in config['SETTINGS']:
+            FILE_TO_PROCESS = config['SETTINGS']['FILE_TO_PROCESS']
 
     if 'AGGREGATE TYPE' in config:
         for variable in config['AGGREGATE TYPE']:
@@ -152,6 +155,13 @@ def main():
 
         filename = os.fsdecode(file)
         file_split = os.path.splitext(filename)
+        if FILE_TO_PROCESS != "none":
+            if FILE_TO_PROCESS.startswith("*"):
+                if not (filenamee.endswith(FILE_TO_PROCESS[1:])):
+                    continue
+            else:
+                if not (filename == FILE_TO_PROCESS):
+                    continue
         if filename.endswith(FILE_TYPES) and not file_split[0].endswith('_processed'):
             file_start_time = datetime.now()  # For current operation length
 
