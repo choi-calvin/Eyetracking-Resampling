@@ -17,12 +17,14 @@ import os
 import argparse
 from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
+from glob import glob
 
 # Constants, can be overwritten by config file
 CONFIG_FILE = 'options.ini'
 
-FILE_TYPES = ('txt', 'text')
-RESAMPLING_RATE = 5#rows
+FILE_TYPES = ('txt', 'text', 'csv')
+RESAMPLING_RATE = 5  # rows
+FILE_TO_PROCESS = "*"
 GROUP_BY = 'TRIAL_INDEX'
 
 PERCENT_PREC = 3
@@ -149,52 +151,48 @@ def main():
     error_count = 0
 
     op_start_time = datetime.now()  # For the calculation of total operation length
-    directory = os.fsencode(args.dir)
-    for file in os.listdir(directory):
-        about_to_override = False
+    for dir, _, _ in os.walk(args.dir):
+        regex_with_all_types = [os.path.join(dir, FILE_TO_PROCESS) + "." + file_type for file_type in list(FILE_TYPES)]
+        for regex_with_type in regex_with_all_types:
+            for filename in glob(regex_with_type):
+                file_split = os.path.splitext(filename)
+                if not file_split[0].endswith('_processed'):
+                    about_to_override = False
+                    file_start_time = datetime.now()  # For current operation length
 
-        filename = os.fsdecode(file)
-        file_split = os.path.splitext(filename)
-        if FILE_TO_PROCESS != "none":
-            if FILE_TO_PROCESS.startswith("*"):
-                if not (filenamee.endswith(FILE_TO_PROCESS[1:])):
-                    continue
-            else:
-                if not (filename == FILE_TO_PROCESS):
-                    continue
-        if filename.endswith(FILE_TYPES) and not file_split[0].endswith('_processed'):
-            file_start_time = datetime.now()  # For current operation length
+                    print("Working on '{}':".format(filename))
+                    print("\tReading...".format(filename), end='')
+                    df = pd.read_csv(os.path.join(args.dir, filename), sep='\t', na_values='.')
+                    print("success!")
 
-            print("Working on '{}':".format(filename))
-            print("\tReading...".format(filename), end='')
-            df = pd.read_csv(os.path.join(args.dir, filename), sep='\t', na_values='.')
-            print("success!")
+                    if GROUP_BY not in df.columns:
+                        print("\tERROR: '{}' not found in dataset, skipping...".format(GROUP_BY))
+                        error_count += 1
+                        print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(),
+                                                           prec=TIME_PREC))
+                        continue
 
-            if GROUP_BY not in df.columns:
-                print("\tERROR: '{}' not found in dataset, skipping...".format(GROUP_BY))
-                error_count += 1
-                print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
-                continue
+                    df = remove_blinks(df)
+                    try:
+                        df = bin_df(df)
+                    except Exception as e:
+                        print("\n\tERROR: " + str(e) + ", skipping...")
+                        error_count += 1
+                        print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(),
+                                                           prec=TIME_PREC))
+                        continue
 
-            df = remove_blinks(df)
-            try:
-                df = bin_df(df)
-            except Exception as e:
-                print("\n\tERROR: " + str(e) + ", skipping...")
-                error_count += 1
-                print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
-                continue
-
-            new_name = os.path.join(args.dir, file_split[0] + '_processed' + file_split[1])
-            if os.path.isfile(new_name):
-                about_to_override = True
-            print("\tExporting...".format(filename), end='')
-            df.to_csv(new_name, sep='\t')
-            print("success!")
-            if about_to_override:
-                print("\t\tWARNING: Overrode '{}'".format(os.path.abspath(new_name)))
-            print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(), prec=TIME_PREC))
-            resampled_count += 1
+                    new_name = os.path.join(args.dir, file_split[0] + '_processed' + file_split[1])
+                    if os.path.isfile(new_name):
+                        about_to_override = True
+                    print("\tExporting...".format(filename), end='')
+                    df.to_csv(new_name, sep='\t')
+                    print("success!")
+                    if about_to_override:
+                        print("\t\tWARNING: Overrode '{}'".format(os.path.abspath(new_name)))
+                    print("\tTotal {:{prec}f}s".format((datetime.now() - file_start_time).total_seconds(),
+                                                       prec=TIME_PREC))
+                    resampled_count += 1
 
     print("\n{} dataframe(s) could not be resampled".format(error_count))
     print("Operation success: resampled {} dataframe(s) (total {:.{prec}f}s)".format(resampled_count, (
