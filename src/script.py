@@ -21,7 +21,7 @@ from glob import glob
 
 # Constants, can be overwritten by config file
 CONFIG_FILE = 'options.ini'
-
+UNIQUE = "a"
 FILE_TYPES = ('txt', 'text', 'csv')
 RESAMPLING_RATE = 1000  # rows
 FILE_TO_PROCESS = "*"
@@ -30,7 +30,7 @@ GROUP_BY = 'TRIAL_INDEX'
 PERCENT_PREC = 3
 TIME_PREC = 5
 
-COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode', 'nunique']
+COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode', 'nunique','count_unique']
 AGGREGATIONS = {}
 
 
@@ -55,6 +55,24 @@ def str_to_float(str_to_convert, default):
 def str_mode(group):
     return group.value_counts().index[0]
 
+def count_unique(group):
+    global UNIQUE
+    #result = group.nunique(dropna=True)
+    if UNIQUE == "a":
+        if(len(group.value_counts().index)>0):
+            UNIQUE = group.value_counts().index[0]
+        return group.nunique(dropna=True)
+   # list = UNIQUE
+    #for i in range(len(group.value_counts().index)):
+     #   if group.value_counts().index[i] == list:
+     #       result=result-1
+    #if(len(group.value_counts().index)>0):
+     #   UNIQUE = group.value_counts().index[0]
+    #return result
+    result = group[group!=UNIQUE]
+    if(len(result.value_counts())!=0):
+        UNIQUE = sorted(result.value_counts().index,reverse=True)[0]
+    return result.nunique(dropna=True)
 
 # Overwrite constants from config file, if they exist
 def read_config():
@@ -90,6 +108,8 @@ def read_config():
                         "WARNING: '{}' in config is not a common aggregate type, may cause crashes".format(agg_type))
                 if agg_type == 'str_mode':
                     agg_type = str_mode
+                if agg_type == 'count_unique':
+                    agg_type = count_unique
                 if variable in AGGREGATIONS:
                     AGGREGATIONS[variable].append(agg_type)
                 else:
