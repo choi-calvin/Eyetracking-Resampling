@@ -23,7 +23,7 @@ from glob import glob
 CONFIG_FILE = 'options.ini'
 
 FILE_TYPES = ('txt', 'text', 'csv')
-RESAMPLING_RATE = 5  # rows
+RESAMPLING_RATE = 1000  # rows
 FILE_TO_PROCESS = "*"
 GROUP_BY = 'TRIAL_INDEX'
 
@@ -37,6 +37,15 @@ AGGREGATIONS = {}
 def str_to_int(str_to_convert, default):
     try:
         converted_str = int(str_to_convert)
+        return converted_str
+    except ValueError:
+        print("ERROR: '{}' is not a valid integer in config, using default {}".format(str_to_convert, default))
+    return default
+
+
+def str_to_float(str_to_convert, default):
+    try:
+        converted_str = float(str_to_convert)
         return converted_str
     except ValueError:
         print("ERROR: '{}' is not a valid integer in config, using default {}".format(str_to_convert, default))
@@ -65,7 +74,7 @@ def read_config():
         if 'FILE_TYPES' in config['SETTINGS']:
             FILE_TYPES = tuple(config['SETTINGS']['FILE_TYPES'].split(','))
         if 'RESAMPLING_RATE' in config['SETTINGS']:
-            RESAMPLING_RATE = str_to_int(config['SETTINGS']['RESAMPLING_RATE'], RESAMPLING_RATE)
+            RESAMPLING_RATE = str_to_float(config['SETTINGS']['RESAMPLING_RATE'], RESAMPLING_RATE) * 1000
         if 'GROUP_BY' in config['SETTINGS']:
             GROUP_BY = config['SETTINGS']['GROUP_BY']
         if 'FILE_TO_PROCESS' in config['SETTINGS']:
