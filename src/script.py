@@ -12,6 +12,7 @@ or with the long-form:
 """
 
 import pandas as pd
+import numpy as np
 import configparser as cp
 import os
 import argparse
@@ -30,7 +31,9 @@ GROUP_BY = 'TRIAL_INDEX'
 PERCENT_PREC = 3
 TIME_PREC = 5
 
-COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode', 'nunique']
+LAST_INDEX = -1
+
+COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode', 'unique_occurrences']
 AGGREGATIONS = {}
 
 
@@ -54,6 +57,17 @@ def str_to_float(str_to_convert, default):
 
 def str_mode(group):
     return group.value_counts().index[0]
+
+
+def unique_occurrences(group):
+    global LAST_INDEX
+    uniques = group.unique()
+    if len(uniques) > 0 and uniques[0] == LAST_INDEX:
+        uniques = uniques[1:]
+    uniques = uniques[~np.isnan(uniques)]
+    if len(uniques) > 0:
+        LAST_INDEX = uniques[-1]
+    return len(uniques)
 
 
 # Overwrite constants from config file, if they exist
@@ -90,6 +104,8 @@ def read_config():
                         "WARNING: '{}' in config is not a common aggregate type, may cause crashes".format(agg_type))
                 if agg_type == 'str_mode':
                     agg_type = str_mode
+                if agg_type == 'unique_occurrences':
+                    agg_type = unique_occurrences
                 if variable in AGGREGATIONS:
                     AGGREGATIONS[variable].append(agg_type)
                 else:
