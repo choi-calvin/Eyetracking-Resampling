@@ -145,19 +145,25 @@ def remove_blinks(df_old):
                                                                              prec=PERCENT_PREC))
     return df_new
 
+def grouped(group):
+    group['e'] = pd.Series(range(0,len(group.index),1), index=group.index)
+    new_group = group.groupby((group.e//RESAMPLING_RATE), as_index=False)
+    new_group = aggregate(new_group,group)
+    return new_group
 
 def bin_df(df_old):
     # Group every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
     print("\tGrouping every {} row(s)...".format(RESAMPLING_RATE), end='')
-    df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
-    # Drop rows at the end of each group to match sampling rate
+    #df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
+    df_groupby = df_old.groupby(GROUP_BY, as_index=True)
+    df_new = df_groupby.apply(grouped)    # Drop rows at the end of each group to match sampling rate
     # df_groupby = df_groupby.filter(lambda x: len(x.index) == RESAMPLING_RATE)
     # df_groupby = df_groupby.groupby([GROUP_BY, (df_groupby.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
     print("success!")
     print("\tComputing and aggregating data...", end='')
-    df_new = aggregate(df_groupby, df_old)
+    #df_new = aggregate(df_groupby, df_old)
     print("success!")
-    df_new = df_new.set_index(GROUP_BY)
+    #df_new = df_new.set_index(GROUP_BY)
     return df_new
 
 
