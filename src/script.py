@@ -136,34 +136,30 @@ def parse_args():
     return parser.parse_args()
 
 
-def remove_blinks(df_old):
+def remove_blinks(df):
     print("\tRemoving blinks...", end='')
-    blink_count = len(df_old[df_old['RIGHT_IN_BLINK'] == 1])
-    df_new = df_old[df_old['RIGHT_IN_BLINK'] == 0]
+    blink_count = len(df[df['RIGHT_IN_BLINK'] == 1])
+    df[df['RIGHT_IN_BLINK'] == 1] = np.nan
     print("success!\n\t\tRemoved {} blink(s) ({:.{prec}f}% of total)".format(blink_count,
-                                                                             blink_count / len(df_old) * 100,
+                                                                             blink_count / len(df) * 100,
                                                                              prec=PERCENT_PREC))
-    return df_new
+
 
 def grouped(group):
-    group['e'] = pd.Series(range(0,len(group.index),1), index=group.index)
+    group['e'] = pd.Series(range(0, len(group.index), 1), index=group.index)
     new_group = group.groupby((group.e//RESAMPLING_RATE), as_index=False)
-    new_group = aggregate(new_group,group)
+    new_group = aggregate(new_group, group)
     return new_group
+
 
 def bin_df(df_old):
     # Group every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
     print("\tGrouping every {} row(s)...".format(RESAMPLING_RATE), end='')
-    #df_groupby = df_old.groupby([GROUP_BY, (df_old.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
     df_groupby = df_old.groupby(GROUP_BY, as_index=True)
-    df_new = df_groupby.apply(grouped)    # Drop rows at the end of each group to match sampling rate
-    # df_groupby = df_groupby.filter(lambda x: len(x.index) == RESAMPLING_RATE)
-    # df_groupby = df_groupby.groupby([GROUP_BY, (df_groupby.index // RESAMPLING_RATE) * RESAMPLING_RATE], as_index=False)
     print("success!")
     print("\tComputing and aggregating data...", end='')
-    #df_new = aggregate(df_groupby, df_old)
+    df_new = df_groupby.apply(grouped)  # Drop rows at the end of each group to match sampling rate
     print("success!")
-    #df_new = df_new.set_index(GROUP_BY)
     return df_new
 
 
@@ -203,7 +199,7 @@ def main():
                                                            prec=TIME_PREC))
                         continue
 
-                    df = remove_blinks(df)
+                    remove_blinks(df)
                     try:
                         df = bin_df(df)
                     except Exception as e:
