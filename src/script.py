@@ -160,6 +160,7 @@ def bin_df(df_old):
     print("\tComputing and aggregating data...", end='')
     df_new = df_groupby.apply(grouped)  # Drop rows at the end of each group to match sampling rate
     print("success!")
+    df_new = df_new.reset_index(level=[None], drop=True)
     return df_new
 
 
