@@ -82,8 +82,7 @@ def read_config():
 
     config = cp.ConfigParser()
     config.optionxform = str
-    config.read(CONFIG_FILE)  # By default, config file is named 'options.ini' in the same folder as script
-
+    config.read(os.getcwd()+'\\src\\'+CONFIG_FILE)  # By default, config file is named 'options.ini' in the same folder as script
     if 'SETTINGS' in config:
         if 'FILE_TYPES' in config['SETTINGS']:
             FILE_TYPES = tuple(config['SETTINGS']['FILE_TYPES'].split(','))
@@ -97,7 +96,6 @@ def read_config():
     if 'AGGREGATE TYPE' in config:
         for variable in config['AGGREGATE TYPE']:
             agg_types = config['AGGREGATE TYPE'][variable].split(',')
-
             for agg_type in agg_types:
                 if agg_type not in COMMON_AGGREGATE_TYPES:
                     print(
@@ -174,7 +172,6 @@ def aggregate(df_groupby, df):
 def main():
     args = parse_args()
     read_config()
-
     resampled_count = 0
     error_count = 0
 
