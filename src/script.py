@@ -82,7 +82,8 @@ def read_config():
 
     config = cp.ConfigParser()
     config.optionxform = str
-    config.read(os.getcwd()+'\\src\\'+CONFIG_FILE)  # By default, config file is named 'options.ini' in the same folder as script
+    # By default, config file is named 'options.ini' in the same folder as script
+    config.read(os.path.join(os.path.dirname(__file__), CONFIG_FILE))
     if 'SETTINGS' in config:
         if 'FILE_TYPES' in config['SETTINGS']:
             FILE_TYPES = tuple(config['SETTINGS']['FILE_TYPES'].split(','))
