@@ -27,6 +27,7 @@ FILE_TYPES = ('txt', 'text', 'csv')
 RESAMPLING_RATE = 1000  # rows
 FILE_TO_PROCESS = "*"
 GROUP_BY = 'TRIAL_INDEX'
+COLUMNS = []
 
 PERCENT_PREC = 3
 TIME_PREC = 5
@@ -79,6 +80,7 @@ def read_config():
     global TIME_PREC
     global AGGREGATIONS
     global FILE_TO_PROCESS
+    global COLUMNS
 
     config = cp.ConfigParser()
     config.optionxform = str
@@ -91,11 +93,13 @@ def read_config():
             RESAMPLING_RATE = str_to_float(config['SETTINGS']['RESAMPLING_RATE'], RESAMPLING_RATE) * 1000
         if 'GROUP_BY' in config['SETTINGS']:
             GROUP_BY = config['SETTINGS']['GROUP_BY']
+            COLUMNS.append(GROUP_BY)
         if 'FILE_TO_PROCESS' in config['SETTINGS']:
             FILE_TO_PROCESS = config['SETTINGS']['FILE_TO_PROCESS']
 
     if 'AGGREGATE TYPE' in config:
         for variable in config['AGGREGATE TYPE']:
+            COLUMNS.append(variable)
             agg_types = config['AGGREGATE TYPE'][variable].split(',')
             for agg_type in agg_types:
                 if agg_type not in COMMON_AGGREGATE_TYPES:
@@ -134,6 +138,15 @@ def parse_args():
                         nargs='?', default=os.getcwd())
     return parser.parse_args()
 
+def remove_columns(df):
+    c = list(df.columns.values)
+    li = COLUMNS.copy()
+    for s in li:
+        try:
+            c.index(s)
+        except ValueError:
+            COLUMNS.remove(s)
+    return df[COLUMNS]
 
 def remove_blinks(df):
     print("\tRemoving blinks...", end='')
@@ -142,6 +155,7 @@ def remove_blinks(df):
     print("success!\n\t\tRemoved {} blink(s) ({:.{prec}f}% of total)".format(blink_count,
                                                                              blink_count / len(df) * 100,
                                                                              prec=PERCENT_PREC))
+    return df
 
 
 def grouped(group):
@@ -198,7 +212,7 @@ def main():
                                                            prec=TIME_PREC))
                         continue
 
-                    remove_blinks(df)
+                    df = remove_columns(remove_blinks(df))
                     try:
                         df = bin_df(df)
                     except Exception as e:
