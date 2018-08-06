@@ -138,6 +138,7 @@ def parse_args():
                         nargs='?', default=os.getcwd())
     return parser.parse_args()
 
+
 def remove_columns(df):
     c = list(df.columns.values)
     li = COLUMNS.copy()
@@ -147,6 +148,7 @@ def remove_columns(df):
         except ValueError:
             COLUMNS.remove(s)
     return df[COLUMNS]
+
 
 def remove_blinks(df):
     print("\tRemoving blinks...", end='')
@@ -160,7 +162,7 @@ def remove_blinks(df):
 
 def grouped(group):
     group['e'] = pd.Series(range(0, len(group.index), 1), index=group.index)
-    new_group = group.groupby((group.e//RESAMPLING_RATE), as_index=False)
+    new_group = group.groupby((group.e // RESAMPLING_RATE), as_index=False)
     new_group = aggregate(new_group, group)
     return new_group
 
@@ -191,8 +193,9 @@ def main():
     error_count = 0
 
     op_start_time = datetime.now()  # For the calculation of total operation length
-    for dir, _, _ in os.walk(args.dir):
-        regex_with_all_types = [os.path.join(dir, FILE_TO_PROCESS) + "." + file_type for file_type in list(FILE_TYPES)]
+    for directory, _, _ in os.walk(args.dir):
+        regex_with_all_types = [os.path.join(directory, FILE_TO_PROCESS) + "." + file_type for file_type in
+                                list(FILE_TYPES)]
         for regex_with_type in regex_with_all_types:
             for filename in glob(regex_with_type):
                 file_split = os.path.splitext(filename)
