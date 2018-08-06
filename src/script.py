@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import configparser as cp
 import os
+import math
 import argparse
 from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
@@ -24,7 +25,10 @@ from glob import glob
 CONFIG_FILE = 'options.ini'
 
 FILE_TYPES = ('txt', 'text', 'csv')
+RESAMPLING_MODE = 0
 RESAMPLING_RATE = 1000  # rows
+RESAMPLING_COUNT = 10
+SPECIFY_INTERVAL = 0
 FILE_TO_PROCESS = "*"
 GROUP_BY = 'TRIAL_INDEX'
 COLUMNS = []
@@ -74,7 +78,10 @@ def unique_occurrences(group):
 # Overwrite constants from config file, if they exist
 def read_config():
     global FILE_TYPES
+    global RESAMPLING_MODE
     global RESAMPLING_RATE
+    global RESAMPLING_COUNT
+    global SPECIFY_INTERVAL
     global GROUP_BY
     global PERCENT_PREC
     global TIME_PREC
@@ -89,8 +96,28 @@ def read_config():
     if 'SETTINGS' in config:
         if 'FILE_TYPES' in config['SETTINGS']:
             FILE_TYPES = tuple(config['SETTINGS']['FILE_TYPES'].split(','))
-        if 'RESAMPLING_RATE' in config['SETTINGS']:
-            RESAMPLING_RATE = str_to_float(config['SETTINGS']['RESAMPLING_RATE'], RESAMPLING_RATE) * 1000
+        if 'RESAMPLING_MODE' in config['SETTINGS']:
+            RESAMPLING_MODE = str_to_int(config['SETTINGS']['RESAMPLING_MODE'], RESAMPLING_MODE)
+
+        if not (0 <= RESAMPLING_MODE <= 2):
+            print("RESAMPLING_MODE has an incorrect value, defaulting...")
+            RESAMPLING_MODE = 0
+        if RESAMPLING_MODE == 0:
+            if 'RESAMPLING_RATE' in config['SETTINGS']:
+                RESAMPLING_RATE = str_to_float(config['SETTINGS']['RESAMPLING_RATE'], RESAMPLING_RATE) * 1000
+            else:
+                print("RESAMPLING_RATE not specified, defaulting...")
+        elif RESAMPLING_MODE == 1:
+            if 'RESAMPLING_COUNT' in config['SETTINGS']:
+                RESAMPLING_COUNT = str_to_int(config['SETTINGS']['RESAMPLING_COUNT'], RESAMPLING_COUNT)
+            else:
+                print("RESAMPLING_COUNT not specified, defaulting...")
+        elif RESAMPLING_MODE == 2:
+            if 'SPECIFY_INTERVAL' in config['SETTINGS']:
+                SPECIFY_INTERVAL = config['SETTINGS']['SPECIFY_INTERVAL', SPECIFY_INTERVAL]
+            else:
+                print("SPECIFY_INTERVAL not specified, defaulting...")
+
         if 'GROUP_BY' in config['SETTINGS']:
             GROUP_BY = config['SETTINGS']['GROUP_BY']
             COLUMNS.append(GROUP_BY)
@@ -168,13 +195,18 @@ def grouped(group):
 
 
 def bin_df(df_old):
+    global RESAMPLING_RATE
+
     # Group every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
-    print("\tGrouping every {} row(s)...".format(RESAMPLING_RATE), end='')
     df_groupby = df_old.groupby(GROUP_BY, as_index=True)
-    print("success!")
-    print("\tComputing and aggregating data...", end='')
+
+    if RESAMPLING_MODE == 1:
+        RESAMPLING_RATE = math.ceil(len(df_old) / RESAMPLING_COUNT)
+
+    print("\tGrouping every {} row(s), computing and aggregating data...".format(RESAMPLING_RATE), end='')
     df_new = df_groupby.apply(grouped)  # Drop rows at the end of each group to match sampling rate
     print("success!")
+
     df_new = df_new.reset_index(level=[None], drop=True)
     return df_new
 
