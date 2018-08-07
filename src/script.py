@@ -263,6 +263,13 @@ def grouped(group):
     Returns:
         The new group from aggregation on group.
     """
+    global RESAMPLING_RATE
+    # Adjust RESAMPLING_RATE according to RESAMPLING_MODE.
+    if RESAMPLING_MODE == 1:
+        # RESAMPLING_MODE of 1 corresponds to grouping by RESAMPLING_COUNT.
+        RESAMPLING_RATE = math.ceil(len(group.index) / RESAMPLING_COUNT)
+        if(len(group.index) // RESAMPLING_COUNT==0):
+            RESAMPLING_RATE = 1
     group['e'] = pd.Series(range(0, len(group.index), 1), index=group.index)
     new_group = group.groupby((group.e // RESAMPLING_RATE), as_index=False)
     new_group = aggregate(new_group, group)
@@ -283,14 +290,11 @@ def bin_df(df_old):
     # Group every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
     df_groupby = df_old.groupby(GROUP_BY, as_index=True)
 
-    # Adjust RESAMPLING_RATE according to RESAMPLING_MODE.
-    if RESAMPLING_MODE == 1:
-        # RESAMPLING_MODE of 1 corresponds to grouping by RESAMPLING_COUNT.
-        RESAMPLING_RATE = math.ceil(len(df_old) / RESAMPLING_COUNT)
 
-    print("\tGrouping every {} row(s), computing and aggregating data...".format(RESAMPLING_RATE), end='')
+    print("\tComputing and aggregating data...",end='')
     df_new = df_groupby.apply(grouped)
     print("success!")
+    print("\tGrouped by every {} row(s)".format(RESAMPLING_RATE))
 
     # Remove the numbered column created in the aggregation
     df_new = df_new.reset_index(level=[None], drop=True)
