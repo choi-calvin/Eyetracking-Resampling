@@ -97,6 +97,7 @@ def str_mode(group):
 def unique_occurrences(group):
     """Returns the count of unique occurrences in the group. For use as an aggregation function. Recommended for columns
     with indices, such as blink index.
+    NOTE: If used as an aggregation type, unique occurrences are not repeated between consequent groups.
 
     Args:
         group: The group to aggregate.
@@ -114,8 +115,12 @@ def unique_occurrences(group):
     return len(uniques)
 
 
-# Overwrite constants from config file, if they exist
 def read_config():
+    """Reads options from the config file and stores them in global variables.
+
+    Returns:
+        None
+    """
     global FILE_TYPES
     global RESAMPLING_MODE
     global RESAMPLING_RATE
@@ -130,7 +135,7 @@ def read_config():
 
     config = cp.ConfigParser()
     config.optionxform = str
-    # By default, config file is named 'options.ini' in the same folder as script
+    # The config file is looked for in the same directory as the script.
     config.read(os.path.join(os.path.dirname(__file__), CONFIG_FILE))
     if 'SETTINGS' in config:
         if 'FILE_TYPES' in config['SETTINGS']:
@@ -188,6 +193,11 @@ def read_config():
 
 
 def parse_args():
+    """Creates and returns an argument parser for the script with appropriate description and arguments.
+
+    Returns:
+        An argument parser for the script.
+    """
     parser = argparse.ArgumentParser(
         description="Dataset resampling script.",
         epilog="""
@@ -206,6 +216,14 @@ def parse_args():
 
 
 def remove_columns(df):
+    """Returns df with columns that are not in COLUMNS (i.e. columns being aggregated) removed.
+
+    Args:
+        df: The DataFrame to modify.
+
+    Returns:
+        df stripped of unnecessary columns.
+    """
     c = list(df.columns.values)
     li = COLUMNS.copy()
     for s in li:
@@ -217,8 +235,17 @@ def remove_columns(df):
 
 
 def remove_blinks(df):
+    """Sets rows to NaN in df marked as blink rows and returns it.
+
+    Args:
+        df: The DataFrame to modify.
+
+    Returns:
+        df stripped of blink rows.
+    """
     print("\tRemoving blinks...", end='')
     blink_count = len(df[df['RIGHT_IN_BLINK'] == 1])
+    # Rows are set to NaN instead of being removed to maintain the row time intervals.
     df[df['RIGHT_IN_BLINK'] == 1] = np.nan
     print("success!\n\t\tRemoved {} blink(s) ({:.{prec}f}% of total)".format(blink_count,
                                                                              blink_count / len(df) * 100,
@@ -227,6 +254,15 @@ def remove_blinks(df):
 
 
 def grouped(group):
+    """Further divides group by the RESAMPLING_RATE and aggregates them, not affecting rows between consequent trials
+    with the resampling.
+
+    Args:
+        group: The group to divide.
+
+    Returns:
+        The new group from aggregation on group.
+    """
     group['e'] = pd.Series(range(0, len(group.index), 1), index=group.index)
     new_group = group.groupby((group.e // RESAMPLING_RATE), as_index=False)
     new_group = aggregate(new_group, group)
@@ -234,23 +270,44 @@ def grouped(group):
 
 
 def bin_df(df_old):
+    """Bins df_old by RESAMPLING_RATE, aggregates, and returns the resulting DataFrame.
+
+    Args:
+        df_old: The DataFrame to bin and aggregate.
+
+    Returns:
+        The resulting DataFrame from performing group by and aggregation on df_old.
+    """
     global RESAMPLING_RATE
 
     # Group every RESAMPLING_RATE rows, and by GROUP_BY to ensure no grouping across trials
     df_groupby = df_old.groupby(GROUP_BY, as_index=True)
 
+    # Adjust RESAMPLING_RATE according to RESAMPLING_MODE.
     if RESAMPLING_MODE == 1:
+        # RESAMPLING_MODE of 1 corresponds to grouping by RESAMPLING_COUNT.
         RESAMPLING_RATE = math.ceil(len(df_old) / RESAMPLING_COUNT)
 
     print("\tGrouping every {} row(s), computing and aggregating data...".format(RESAMPLING_RATE), end='')
-    df_new = df_groupby.apply(grouped)  # Drop rows at the end of each group to match sampling rate
+    df_new = df_groupby.apply(grouped)
     print("success!")
 
+    # Remove the numbered column created in the aggregation
     df_new = df_new.reset_index(level=[None], drop=True)
     return df_new
 
 
 def aggregate(df_groupby, df):
+    """Returns the DataFrame from performing aggregations on df_groupby that are applicable to perform on the original
+    df.
+
+    Args:
+        df_groupby: The DataFrame to aggregate.
+        df: The original DataFrame before performing group by on df_groupby.
+
+    Returns:
+        The result of aggregations on df_groupby.
+    """
     # Aggregate dataset only with column variables that exist in the current worked dataset
     modified_aggregations = {variable: agg_types for variable, agg_types in AGGREGATIONS.items() if
                              variable in df}
@@ -258,10 +315,16 @@ def aggregate(df_groupby, df):
 
 
 def main():
+    """Performs specified aggregations on the DataFrames in the specified directory, and outputs them as new DataFrame
+    files.
+
+    Returns:
+        None
+    """
     args = parse_args()
     read_config()
     resampled_count = 0
-    error_count = 0
+    error_count = 0  # The number of DataFrames that could not be resampled.
 
     op_start_time = datetime.now()  # For the calculation of total operation length
     for directory, _, _ in os.walk(args.dir):
@@ -270,6 +333,7 @@ def main():
         for regex_with_type in regex_with_all_types:
             for filename in glob(regex_with_type):
                 file_split = os.path.splitext(filename)
+                # Script ignores all files that end with _processed to avoid processing already processed files.
                 if not file_split[0].endswith('_processed'):
                     about_to_override = False
                     file_start_time = datetime.now()  # For current operation length
