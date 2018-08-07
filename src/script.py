@@ -21,9 +21,12 @@ from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
 from glob import glob
 
-# Constants, can be overwritten by config file
+# The name of the .ini config file
+# May be renamed but must be within the same directory as this script
 CONFIG_FILE = 'options.ini'
 
+# Constants to configure script behaviour
+# These are default values, many can be overwritten by the config file
 FILE_TYPES = ('txt', 'text', 'csv')
 RESAMPLING_MODE = 0
 RESAMPLING_RATE = 1000  # rows
@@ -31,18 +34,28 @@ RESAMPLING_COUNT = 10
 SPECIFY_INTERVAL = 0
 FILE_TO_PROCESS = "*"
 GROUP_BY = 'TRIAL_INDEX'
-COLUMNS = []
-
 PERCENT_PREC = 3
 TIME_PREC = 5
 
+# Constants that are used in the aggregation calculations
+# Changing these variables will lead to drastic unwanted results
+COLUMNS = []
 LAST_INDEX = -1
-
+# If the config specifies an aggregation function not in the list below, it warns the user of potential problems
 COMMON_AGGREGATE_TYPES = ['mean', 'median', 'sum', 'min', 'max', 'str_mode', 'unique_occurrences']
 AGGREGATIONS = {}
 
 
 def str_to_int(str_to_convert, default):
+    """Returns str_to_convert converted to int, or default if an error occurs.
+
+    Args:
+        str_to_convert: The str to convert to int.
+        default: The int to return instead if the conversion results in an error.
+
+    Returns:
+        str_to_convert as an int, or default.
+    """
     try:
         converted_str = int(str_to_convert)
         return converted_str
@@ -52,6 +65,15 @@ def str_to_int(str_to_convert, default):
 
 
 def str_to_float(str_to_convert, default):
+    """Returns str_to_convert converted to float, or default if an error occurs.
+
+    Args:
+        str_to_convert: The str to convert to float.
+        default: The float to return instead if the conversion results in an error.
+
+    Returns:
+        str_to_convert as an float, or default.
+    """
     try:
         converted_str = float(str_to_convert)
         return converted_str
@@ -61,10 +83,27 @@ def str_to_float(str_to_convert, default):
 
 
 def str_mode(group):
+    """Returns the value that occurs the most in group. For use as an aggregation function.
+
+    Args:
+        group: The group to aggregate.
+
+    Returns:
+        The mode of group.
+    """
     return group.value_counts().index[0]
 
 
 def unique_occurrences(group):
+    """Returns the count of unique occurrences in the group. For use as an aggregation function. Recommended for columns
+    with indices, such as blink index.
+
+    Args:
+        group: The group to aggregate.
+
+    Returns:
+        The count of unique occurrences in the group.
+    """
     global LAST_INDEX
     uniques = group.unique()
     if len(uniques) > 0 and uniques[0] == LAST_INDEX:
